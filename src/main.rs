@@ -24,7 +24,11 @@ fn main() -> anyhow::Result<()> {
 
     ;
 
-    let (pos, depth) = compute_final_position(commands);
+    let (pos, depth) = compute_final_position(&commands);
+
+    let _ = !dbg!(pos * depth);
+
+    let (pos, depth) = compute_final_position_fixed(&commands);
 
     let _ = !dbg!(pos * depth);
 
@@ -40,7 +44,33 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn compute_final_position(commands:Vec<SubmarineCommand>) -> (i64, i64) {
+
+fn compute_final_position_fixed(commands:&Vec<SubmarineCommand>) -> (i64, i64) {
+    let mut horizontal_pos:i64 = 0;
+    let mut depth:i64 = 0;
+    let mut aim:i64 = 0;
+
+    for command in commands.iter() {
+        match command {
+            SubmarineCommand {
+                direction: SubmarineCommandDirection::Down, value:v
+            } => aim += v,
+            SubmarineCommand {
+                direction: SubmarineCommandDirection::Up, value:v
+            } => aim -= v,
+            SubmarineCommand {
+                direction: SubmarineCommandDirection::Forward, value:v
+            } => {
+                horizontal_pos += v;
+                depth += aim * v
+            }
+        }
+    }
+
+    return (horizontal_pos, depth)
+}
+
+fn compute_final_position(commands:&Vec<SubmarineCommand>) -> (i64, i64) {
     let mut horizontal_pos:i64 = 0;
     let mut depth:i64 = 0;
 
