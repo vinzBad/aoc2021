@@ -1,4 +1,4 @@
-// most of this code is taken from https://fasterthanli.me/series/advent-of-code-2020/part-1
+// very much inspired by https://fasterthanli.me/series/advent-of-code-2020/part-1
 // thanks amos!
 const INPUT: &str = include_str!("day2/input.txt");
 
