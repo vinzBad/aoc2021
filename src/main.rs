@@ -1,185 +1,134 @@
 // very much inspired by https://fasterthanli.me/series/advent-of-code-2020/part-1
 // thanks amos!
-
+use regex::Regex;
 use std::collections::HashSet;
 
-const INPUT: &str = include_str!("day3/input.txt");
+const INPUT: &str = include_str!("day4/input.txt");
+
+// Board:
+// 10x HashSet of Columns and Rows
+// 5x5 array of int64
+// Logic
+// Loop over bingo input -> add to HashSet -> find Board Hashset that is_subset of Input Hashset
+
+#[derive(Debug)]
+struct Board {
+    rows_and_columns: Vec<HashSet<i64>>,
+    data: [i64; 5*5]
+}
+
+
 
 fn main() -> anyhow::Result<()> {
-    let report =
+    let mut board_data =
         INPUT
             .split('\n')
-            .filter(|s| s.len() > 0)
-            .collect::<Vec<&str>>()
+            .filter(|s| s.len() > 0);
 
-    ;
+    let mut boards: Vec<Board> = Vec::new();
+
+    let mut input_vec: Vec<i64> = Vec::new();
 
 
-    let (g,e) = calculate_gamma_epsilon(&report);
-    let _ = dbg!(g*e);
+    // 7,4,9,5,11,17,23,2,0,14,21,24,10,16,13,6,15,25,12,22,18,20,8,19,3,26,1
+    for input_str in board_data.next().unwrap().split(',') {
+        input_vec.push(input_str.parse::<i64>().unwrap());
+    }
 
-    let (o2,co2) = calculate_o2_co2_rating(&report);
-    let _ = dbg!(o2*co2);
+    // 22 13 17 11  0
+    // 8  2 23  4 24
+    // 21  9 14 16  7
+    // 6 10  3 18  5
+    // 1 12 20 15 19
+    let re = Regex::new(r"(\d+)").unwrap();
+    let mut finished_parse = false;
+    loop {
+        let mut rows_and_columns:Vec<HashSet<i64>> = Vec::with_capacity(10);
+        for _ in 0..10 {
+            rows_and_columns.push(HashSet::new());
+        }
+        let mut data: [i64; 5*5] = [-1; 5*5];
+
+        for row_idx in 0..5 {
+            let row;
+            match board_data.next(){
+                Some(v) => row = v,
+                None => {
+                    finished_parse = true;
+                    break
+                }
+            }
+            let nums = re.captures_iter(row)
+                .map(|c| c.get(0).unwrap().as_str().parse::<i64>().unwrap())
+                .collect::<Vec<i64>>();
+
+            for col_idx in 0..5 {
+                let num = nums[col_idx];
+                data[row_idx * 5 + col_idx] = num;
+                rows_and_columns[row_idx].insert(num);
+                rows_and_columns[5 + col_idx].insert(num);
+            }
+        }
+        if data[24] != -1 {
+            boards.push(
+                Board{
+                    rows_and_columns: rows_and_columns,
+                    data: data
+                }
+            );
+        }
+
+        if finished_parse {
+            break;
+        }
+    }
+
+    let mut input_hash: HashSet<i64> = HashSet::new();
+    let mut found_winning_board = false;
+    let mut winning_board_index:Option<usize> = Option::None;
+    let mut last_number = -1;
+    for input_num in input_vec.iter() {
+        input_hash.insert(*input_num);
+        last_number = *input_num;
+        for board_idx in 0..boards.len() {
+            let board = &boards[board_idx];
+            for row_or_column in board.rows_and_columns.iter() {
+                if row_or_column.is_subset(&input_hash) {
+                    found_winning_board = true;
+                    winning_board_index = Option::Some(board_idx);
+                    break;
+                }
+            }
+            if found_winning_board {
+                break;
+            }
+        }
+        if found_winning_board{
+            break
+        }
+    }
+
+
+    dbg!(winning_board_index);
+
+    match winning_board_index {
+        Some(idx) => {
+            let board = &boards[idx];
+            let mut unmarked_sum = 0;
+            for num_idx in 0..25 {
+                if input_hash.contains(&board.data[num_idx]) {
+                    // number is marked, ignore it
+                }
+                else {
+                    unmarked_sum += &board.data[num_idx];
+                }
+            }
+            dbg!(unmarked_sum * last_number);
+        }
+        None => {dbg!("no winning board :(");}
+    }
+
+
+
     Ok(())
-}
-
-
-fn calculate_o2_co2_rating(report: &Vec<&str>) -> (i64, i64){
-    if report.len() < 1 {
-        panic!("Report must be longer than 0");
-    }
-
-    let column_count = report[0].len();
-
-    let mut co2_value = 0;
-    let mut o2_value = 0;
-
-    let mut o2_indexes = HashSet::new();
-    let mut co2_indexes = HashSet::new();
-
-    for row_idx in 0..report.len() {
-        o2_indexes.insert(row_idx);
-        co2_indexes.insert(row_idx);
-    }
-
-    for col_idx in 0..column_count {
-        let mut o2_count_one = 0;
-        let mut o2_count_zero = 0;
-
-        let mut co2_count_one = 0;
-        let mut co2_count_zero = 0;
-        // analyze
-        for row_idx in 0..report.len() {
-            let row = report[row_idx];
-            let chars = row.chars().collect::<Vec<char>>();
-
-            if co2_indexes.contains(&row_idx) {
-                match chars[col_idx] {
-                    '0' => co2_count_zero += 1,
-                    '1' => co2_count_one += 1,
-                    _ => panic!("dunno")
-                }
-            }
-
-            if o2_indexes.contains(&row_idx) {
-                match chars[col_idx] {
-                    '0' => o2_count_zero += 1,
-                    '1' => o2_count_one += 1,
-                    _ => panic!("dunno")
-                }
-            }
-        }
-
-        dbg!(col_idx);
-        dbg!((o2_count_one, o2_count_zero));
-        dbg!((co2_count_one, co2_count_zero));
-        // collect
-        for row_idx in 0..report.len() {
-            let row = report[row_idx];
-            let chars = row.chars().collect::<Vec<char>>();
-            let is_one;
-
-
-            match chars[col_idx] {
-                '0' => is_one=false,
-                '1' => is_one=true,
-                _ => panic!("dunno")
-            }
-
-
-            if o2_count_one >= o2_count_zero {            // more or equal 1s than 0s -> want to keep 1s
-                if is_one {
-                    // keep this number
-                }
-                else {
-                    o2_indexes.remove(&row_idx);
-                }
-
-            } else {  // less 1s than 0s -> want to keep 0s
-                if is_one {
-                    o2_indexes.remove(&row_idx);
-                }
-                else {
-                    // keep this number
-                }
-            }
-
-
-            if co2_count_zero <= co2_count_one {            // less or equal 0s than 1s -> want to keep 0s
-                if is_one {
-                    co2_indexes.remove(&row_idx);
-                }
-                else {
-                    // keep this number
-                }
-
-            } else {  // more 0s than 1s -> want to keep 1s
-                if is_one {
-                    // keep this number
-                }
-                else {
-                    co2_indexes.remove(&row_idx);
-                }
-            }
-        }
-
-        if co2_indexes.len() == 1 {
-            let row_idx = co2_indexes.iter().collect::<Vec<&usize>>()[0].clone();
-            co2_value = i64::from_str_radix(report[row_idx], 2).unwrap();
-        }
-        if o2_indexes.len() == 1 {
-            let row_idx = o2_indexes.iter().collect::<Vec<&usize>>()[0].clone();
-            o2_value = i64::from_str_radix(report[row_idx], 2).unwrap();
-        }
-    }
-
-    return(co2_value,o2_value)
-}
-
-fn calculate_gamma_epsilon(report: &Vec<&str>) -> (i64, i64){
-    if report.len() < 1 {
-        panic!("Report must be longer than 0");
-    }
-
-
-    let mut column_counts:Vec<i64> = Vec::new();
-
-    for _ in 0..report[0].len(){
-        column_counts.push(0);
-    }
-
-    for row in report.iter()    {
-        let chars = row.chars().collect::<Vec<char>>();
-        for char_idx in 0..chars.len() {
-            match chars[char_idx] {
-                '0' => {},
-                '1' => column_counts[char_idx] += 1,
-                _ => panic!("dunno")
-            }
-        }
-    }
-
-    // this is what happens when you don't finish your compsci studies folks...
-
-    let mut gamma_str = String::from("");
-    let mut epsilon_str = String::from("");
-
-    // it's a bit embarassing but it works
-    for count in column_counts.iter(){
-        if count > &((report.len() as i64) / 2){
-            gamma_str.push_str("1");
-            epsilon_str.push_str("0");
-        }
-        else {
-            gamma_str.push_str("0");
-            epsilon_str.push_str("1");
-        }
-    }
-
-    // yes I should just `NOT` all bits, but I'm on a deadline
-
-    match  (i64::from_str_radix(&gamma_str, 2), i64::from_str_radix(&epsilon_str, 2)) {
-        (Ok(g), Ok(e)) => return (g, e),
-        _ => panic!("can't parse {} or {}", gamma_str, epsilon_str)
-    }
 }
