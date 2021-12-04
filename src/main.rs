@@ -84,46 +84,75 @@ fn main() -> anyhow::Result<()> {
     }
 
     let mut input_hash: HashSet<i64> = HashSet::new();
+    let mut input_hash_first_winning_board: HashSet<i64> = HashSet::new();
+    let mut input_hash_last_winning_board: HashSet<i64> = HashSet::new();
     let mut found_winning_board = false;
     let mut winning_board_index:Option<usize> = Option::None;
-    let mut last_number = -1;
+    let mut last_winning_board_index:Option<usize> = Option::None;
+    let mut winning_boards: HashSet<usize> = HashSet::new();
+    let mut last_number;
+    let mut last_number_first_winning_board = -1;
+    let mut last_number_last_winning_board = -1;
     for input_num in input_vec.iter() {
         input_hash.insert(*input_num);
         last_number = *input_num;
         for board_idx in 0..boards.len() {
+            if winning_boards.contains(&board_idx) {
+                continue;
+            }
             let board = &boards[board_idx];
             for row_or_column in board.rows_and_columns.iter() {
                 if row_or_column.is_subset(&input_hash) {
-                    found_winning_board = true;
-                    winning_board_index = Option::Some(board_idx);
+                    winning_boards.insert(board_idx);
+                    last_winning_board_index = Option::Some(board_idx);
+                    last_number_last_winning_board = last_number;
+                    input_hash_last_winning_board = input_hash.clone();
+                    if !found_winning_board {
+                        found_winning_board = true;
+                        input_hash_first_winning_board = input_hash.clone();
+                        last_number_first_winning_board = last_number;
+                        winning_board_index = Option::Some(board_idx);
+                    }
                     break;
                 }
             }
-            if found_winning_board {
-                break;
-            }
-        }
-        if found_winning_board{
-            break
         }
     }
 
 
     dbg!(winning_board_index);
+    dbg!(last_winning_board_index);
 
     match winning_board_index {
         Some(idx) => {
             let board = &boards[idx];
             let mut unmarked_sum = 0;
             for num_idx in 0..25 {
-                if input_hash.contains(&board.data[num_idx]) {
+                if input_hash_first_winning_board.contains(&board.data[num_idx]) {
                     // number is marked, ignore it
                 }
                 else {
                     unmarked_sum += &board.data[num_idx];
                 }
             }
-            dbg!(unmarked_sum * last_number);
+            dbg!(unmarked_sum * last_number_first_winning_board);
+        }
+        None => {dbg!("no winning board :(");}
+    }
+
+    match last_winning_board_index {
+        Some(idx) => {
+            let board = &boards[idx];
+            let mut unmarked_sum = 0;
+            for num_idx in 0..25 {
+                if input_hash_last_winning_board.contains(&board.data[num_idx]) {
+                    // number is marked, ignore it
+                }
+                else {
+                    unmarked_sum += &board.data[num_idx];
+                }
+            }
+            dbg!(unmarked_sum * last_number_last_winning_board);
         }
         None => {dbg!("no winning board :(");}
     }
