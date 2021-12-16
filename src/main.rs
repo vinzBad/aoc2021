@@ -11,11 +11,20 @@ use bit_vec::BitVec;
 struct Packet {
     version: u8,
     type_id: u8,
-    payload:BitVec
+    ptype:PacketType
+}
+
+#[derive(Debug)]
+enum PacketType {
+    Value (u32),
+    Operator {
+        operator_id: u8,
+        packets:Vec<Packet>
+     }
 }
 
 
-const INPUT: &str = include_str!("day16/test_input5.txt");
+const INPUT: &str = include_str!("day16/test_input2.txt");
 
 fn main() -> anyhow::Result<()> {
     let input = INPUT
@@ -58,9 +67,15 @@ fn main() -> anyhow::Result<()> {
 
 
 
-    println!("{}", result_viz);
+    println!("{}\n", result_viz);
 
-    dbg!(parse_packets(&bits));
+    let result = parse_packets(&bits);
+    dbg!(&result);
+    let mut sum = 0;
+    for r in result {
+        sum += r.version;
+    }
+    dbg!(sum);
     Ok(())
 
 }
@@ -78,6 +93,7 @@ fn parse_packets(msg:&BitVec) -> Vec<Packet> {
 
         match type_id {
             4 => {
+                println!("got value packet at {}", idx);
                 let mut value_bits = BitVec::new();
                 loop {
                     let is_last_group = ! msg[idx];
@@ -98,14 +114,45 @@ fn parse_packets(msg:&BitVec) -> Vec<Packet> {
                     type_id: type_id as u8,
                     payload: value_bits
                 });
+                println!("\t its last 4bits stop at {}", &idx);
+                // move to next 4bit boundary
+                idx = idx + (4 - (idx % 4));
+                println!("\t padded to to next boundary it's {}", &idx);
 
             }
             _ => {
+                println!("got operator packet at {}", idx);
+                let length_type = msg[idx];
+                idx += 1;
+                if length_type { // next 11 bits are a number that represents the number of sub-packets immediately contained
+                    let num_packets = parse_bits(msg, idx, 11);
+                    println!("\t its encoding the number of packets to {}", &num_packets);
+                    idx+=11;
 
+                    let payload = get_sub_msg(msg, idx, 8);
+
+                    result.push(Packet{
+                        version:version as u8,
+                        type_id: type_id as u8,
+                        payload: payload
+                    });
+
+                } else { // next 15 bits are a number that represents the total length in bits of the sub-packets contained by this packet.
+                    let length_packets = parse_bits(msg, idx, 15);
+                    println!("\t its encoding the length of packets to {}", &length_packets);
+                    idx += 15;
+                    let payload = get_sub_msg(msg, idx, 8);
+
+                    result.push(Packet{
+                        version:version as u8,
+                        type_id: type_id as u8,
+                        payload: payload
+                    });
+                }
             }
         }
-        // move to next 4bit boundary
-        idx = idx + (4 - (idx % 4));
+        println!("finished parsing a packet at {}\n", idx);
+
 
         if idx >= msg.len() {
             break;
@@ -116,6 +163,15 @@ fn parse_packets(msg:&BitVec) -> Vec<Packet> {
 }
 
 
+fn get_sub_msg(msg:&BitVec, from:usize, count:usize) -> BitVec {
+    let mut result = BitVec::with_capacity(count);
+
+    for idx in from..from + count {
+        result.push(msg[idx]);
+    }
+
+    return result;
+}
 
 
 fn parse_bits(msg:&BitVec, from:usize, count:usize ) -> u32 {
